@@ -1,211 +1,160 @@
-# =====================================================
-# Simulador SJF Apropiativo (SRTF)
-# Con O E/S, Gantt, CPL, métricas
-# =====================================================
-
-class Proceso:
-    def __init__(self, pid, llegada, rafaga, tiene_io,
-                 instante_io, duracion_io):
-        self.pid = pid
-        self.llegada = llegada
-        self.rafaga_total = rafaga
-        self.rafaga_restante = rafaga
-
-        self.tiene_io = tiene_io
-        self.instante_io = instante_io
-        self.duracion_io = duracion_io
-
-        self.ejecutado_cpu = 0
-        self.io_realizado = False
-        self.io_fin = None
-
-        self.orden_llegada_cpl = None
-        self.tiempo_fin = None  # ⬅ NUEVO
-
-    def __str__(self):
-        return f"P{self.pid}"
-
+from collections import deque
 
 # =========================
-# INGRESO DE DATOS
+# INGRESO DE PROCESOS
 # =========================
-
-def leer_entero(msg, minimo=0):
+def ingresar_procesos():
     while True:
         try:
-            v = int(input(msg))
-            if v < minimo:
+            n = int(input("Ingrese el número de procesos: "))
+            if n <= 0:
                 raise ValueError
-            return v
+            break
         except ValueError:
-            print("❌ Valor inválido.")
+            print("❌ Ingrese un número válido.")
 
-while True:
-    n = leer_entero("Número de procesos: ", 1)
     procesos = []
-    error = False
 
-    for i in range(n):
+    i = 1
+    while i <= n:
         print(f"\nProceso P{i}")
         try:
-            llegada = leer_entero("Tiempo de llegada: ")
-            rafaga = leer_entero("Ráfaga CPU: ", 1)
+            llegada = int(input("Tiempo de llegada: "))
+            rafaga = int(input("Ráfaga de CPU: "))
 
             tiene_io = input("¿Tiene O E/S? (s/n): ").lower()
-            if tiene_io not in ("s", "n"):
-                raise ValueError
+            io_inicio = None
+            io_duracion = None
 
-            instante_io = 0
-            duracion_io = 0
             if tiene_io == "s":
-                instante_io = leer_entero(
-                    "Milisegundo en que va a O E/S: ", 1)
-                duracion_io = leer_entero(
-                    "Duración de O E/S: ", 1)
+                io_inicio = int(input("Milisegundo de ejecución en que va a O E/S: "))
+                io_duracion = int(input("Duración de O E/S: "))
 
-            procesos.append(
-                Proceso(i, llegada, rafaga,
-                        tiene_io == "s",
-                        instante_io, duracion_io)
-            )
+            procesos.append({
+                "id": f"P{i}",
+                "llegada": llegada,
+                "rafaga": rafaga,
+                "restante": rafaga,
+                "io_inicio": io_inicio,
+                "io_duracion": io_duracion,
+                "io_retorno": None,
+                "ejecutado": 0,
+                "fin": None
+            })
+            i += 1
         except:
-            print("❌ Error en los datos. Reingrese todo.")
-            error = True
+            print("❌ Error en datos. Reingrese el proceso.")
+
+    return procesos
+
+
+# =========================
+# SIMULACIÓN SJF APROPIATIVO
+# =========================
+def simular_sjf(procesos):
+    tiempo = 0
+    cpu = None
+    cpl = []
+    io = []
+    gantt = []
+
+    historial_cpl = []
+    historial_io = []
+
+    procesos_tabla = procesos.copy()
+    procesos_io = []
+
+    while True:
+        # Llegadas desde tabla
+        llegados = [p for p in procesos_tabla if p["llegada"] == tiempo]
+        for p in llegados:
+            cpl.append(p)
+            procesos_tabla.remove(p)
+
+        # Retornos de O E/S
+        retornos = [p for p in procesos_io if p["io_retorno"] == tiempo]
+        for p in retornos:
+            cpl.append(p)
+            procesos_io.remove(p)
+
+        # Orden CPL (SJF + FIFO + prioridad tabla)
+        cpl.sort(key=lambda x: (x["restante"], x["llegada"]))
+
+        # Selección CPU
+        if cpu and cpu["restante"] > 0:
+            if cpl and cpl[0]["restante"] < cpu["restante"]:
+                cpl.append(cpu)
+                cpu = cpl.pop(0)
+        elif cpl:
+            cpu = cpl.pop(0)
+
+        # Ejecutar CPU
+        if cpu:
+            gantt.append(cpu["id"])
+            cpu["restante"] -= 1
+            cpu["ejecutado"] += 1
+
+            # Ir a O E/S
+            if cpu["io_inicio"] is not None and cpu["ejecutado"] == cpu["io_inicio"]:
+                cpu["io_retorno"] = tiempo + cpu["io_duracion"]
+                procesos_io.append(cpu)
+                cpu = None
+
+            # Termina proceso
+            elif cpu and cpu["restante"] == 0:
+                cpu["fin"] = tiempo + 1
+                cpu = None
+        else:
+            gantt.append("—")
+
+        historial_cpl.extend([p["id"] for p in cpl])
+        historial_io.extend([f"{p['id']}({p['io_retorno']})" for p in procesos_io])
+
+        tiempo += 1
+
+        if not (procesos_tabla or cpl or cpu or procesos_io):
             break
 
-    if not error:
-        break
+    return gantt, historial_cpl, historial_io, procesos
 
 
 # =========================
-# TABLA DE PROCESOS
+# TABLAS Y MÉTRICAS
 # =========================
-
-print("\nTABLA DE PROCESOS")
-print("-" * 65)
-print("Proceso | Llegada | Ráfaga | O E/S | Instante | Duración")
-print("-" * 65)
-
-for p in procesos:
-    print(f"P{p.pid:^7}|{p.llegada:^9}|{p.rafaga_total:^8}|"
-          f"{'Sí' if p.tiene_io else 'No':^6}|"
-          f"{p.instante_io if p.tiene_io else '-':^9}|"
-          f"{p.duracion_io if p.tiene_io else '-':^9}")
-print("-" * 65)
-
-
-# =========================
-# SIMULACIÓN
-# =========================
-
-tiempo = 0
-cpu = None
-cpl = []
-io = []
-
-gantt_cpu = []
-cpl_final = []
-io_final = []
-
-fifo = 0
-
-while True:
-    # Llegadas desde tabla
+def imprimir_tablas(procesos, gantt, cpl_hist, io_hist):
+    print("\n📋 TABLA DE PROCESOS")
+    print("Proceso | Llegada | Ráfaga | O E/S | Duración")
     for p in procesos:
-        if p.llegada == tiempo:
-            p.orden_llegada_cpl = fifo
-            fifo += 1
-            cpl.append(p)
-            cpl_final.append(str(p))
+        print(f"{p['id']:7} | {p['llegada']:7} | {p['rafaga']:6} | "
+              f"{'Sí' if p['io_inicio'] else 'No':5} | "
+              f"{p['io_duracion'] if p['io_duracion'] else '-'}")
 
-    # Regresos de O E/S
-    for p in io[:]:
-        if tiempo == p.io_fin:
-            p.orden_llegada_cpl = fifo
-            fifo += 1
-            cpl.append(p)
-            cpl_final.append(str(p))
-            io.remove(p)
+    print("\n📊 DIAGRAMA DE GANTT (CPU)")
+    print("|" + "|".join(gantt) + "|")
 
-    # Ordenar CPL (SJF + FIFO)
-    cpl.sort(key=lambda x: (x.rafaga_restante, x.orden_llegada_cpl))
+    print("\n📥 CPL FINAL")
+    print("|" + "|".join(cpl_hist) + "|")
 
-    # Apropiación
-    if cpu and cpl and cpl[0].rafaga_restante < cpu.rafaga_restante:
-        cpu.orden_llegada_cpl = fifo
-        fifo += 1
-        cpl.append(cpu)
-        cpl_final.append(str(cpu))
-        cpu = None
+    print("\n🔄 O E/S FINAL")
+    print("|" + "|".join(io_hist) + "|")
 
-    # Asignar CPU
-    if cpu is None and cpl:
-        cpu = cpl.pop(0)
+    print("\n📈 TABLA FINAL (TE y TEje)")
+    total_te = 0
+    total_teje = 0
 
-    gantt_cpu.append(str(cpu) if cpu else "Idle")
+    print("Proceso | TE | TEje")
+    for p in procesos:
+        te = p["fin"] - p["rafaga"] - p["llegada"]
+        if p["io_duracion"]:
+            te -= p["io_duracion"]
 
-    # Ejecutar
-    if cpu:
-        cpu.rafaga_restante -= 1
-        cpu.ejecutado_cpu += 1
+        teje = p["fin"] - p["llegada"]
 
-        if (cpu.tiene_io and not cpu.io_realizado and
-                cpu.ejecutado_cpu == cpu.instante_io):
-            cpu.io_realizado = True
-            cpu.io_fin = tiempo + cpu.duracion_io
-            io.append(cpu)
-            io_final.append((str(cpu), cpu.io_fin))
-            cpu = None
+        total_te += te
+        total_teje += teje
 
-        elif cpu.rafaga_restante == 0:
-            cpu.tiempo_fin = tiempo + 1  # ⬅ IMPORTANTE
-            cpu = None
+        print(f"{p['id']:7} | {te:2} | {teje:4}")
 
-    tiempo += 1
+    print("\n📌 TEP =", total_te / len(procesos))
+    print("📌 TEjeP =", total_teje / len(procesos))
 
-    if all(p.rafaga_restante == 0 for p in procesos) and not io and not cpu:
-        break
-
-
-# =========================
-# MÉTRICAS
-# =========================
-
-total_te = 0
-total_teje = 0
-
-for p in procesos:
-    te = (p.tiempo_fin
-          - p.rafaga_total
-          - p.llegada)
-
-    if p.tiene_io:
-        te -= p.duracion_io
-
-    total_te += te
-    total_teje += (p.tiempo_fin - p.llegada)
-
-tep = total_te / n
-teje_p = total_teje / n
-
-
-# =========================
-# SALIDAS
-# =========================
-
-print("\nGANTT CPU")
-print("".join(f"|{x:^4}" for x in gantt_cpu) + "|")
-
-print("\nCPL FINAL")
-print("".join(f"|{x:^4}" for x in cpl_final) + "|")
-
-print("\nO E/S FINAL")
-if io_final:
-    print("".join(f"|{p:^4}" for p, _ in io_final) + "|")
-    print("".join(f"|{t:^4}" for _, t in io_final) + "|")
-else:
-    print("|   SIN O E/S   |")
-
-print("\n📊 MÉTRICAS")
-print(f"TEP  (Tiempo de Espera Promedio): {tep:.2f} ms")
-print(f"TEjeP (Tiempo de Ejecución Promedio): {teje_p:.2f} ms")
