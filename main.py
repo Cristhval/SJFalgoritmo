@@ -2,14 +2,14 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 from SJF import simular_sjf
-from gantt import dibujar_gantt
+from gantt import dibujar_gantt, dibujar_cpl, dibujar_oes
 
 
 class SJFApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Simulación SJF Apropiativo")
-        self.root.geometry("900x600")
+        self.root.geometry("1000x700")
 
         self.procesos = []
 
@@ -25,12 +25,9 @@ class SJFApp:
         frame = tk.LabelFrame(self.root, text="Ingreso de Proceso")
         frame.pack(fill="x", padx=10, pady=5)
 
-        tk.Label(frame, text="Proceso").grid(row=0, column=0)
-        tk.Label(frame, text="Llegada").grid(row=0, column=1)
-        tk.Label(frame, text="Ráfaga").grid(row=0, column=2)
-        tk.Label(frame, text="O E/S").grid(row=0, column=3)
-        tk.Label(frame, text="Inicio O E/S").grid(row=0, column=4)
-        tk.Label(frame, text="Duración").grid(row=0, column=5)
+        labels = ["Proceso", "Llegada", "Ráfaga", "O E/S", "Inicio O E/S", "Duración"]
+        for i, texto in enumerate(labels):
+            tk.Label(frame, text=texto).grid(row=0, column=i, padx=3)
 
         self.id_entry = tk.Entry(frame, width=8)
         self.llegada_entry = tk.Entry(frame, width=8)
@@ -42,7 +39,13 @@ class SJFApp:
         self.id_entry.grid(row=1, column=0)
         self.llegada_entry.grid(row=1, column=1)
         self.rafaga_entry.grid(row=1, column=2)
-        ttk.Combobox(frame, values=["No", "Sí"], textvariable=self.io_var, width=6).grid(row=1, column=3)
+        ttk.Combobox(
+            frame,
+            values=["No", "Sí"],
+            textvariable=self.io_var,
+            width=6,
+            state="readonly"
+        ).grid(row=1, column=3)
         self.io_inicio_entry.grid(row=1, column=4)
         self.io_duracion_entry.grid(row=1, column=5)
 
@@ -71,7 +74,7 @@ class SJFApp:
 
         for col, texto in columnas.items():
             self.tabla.heading(col, text=texto)
-            self.tabla.column(col, anchor="center", width=110)
+            self.tabla.column(col, anchor="center", width=120)
 
         self.tabla.pack(fill="x", padx=5, pady=5)
 
@@ -82,8 +85,25 @@ class SJFApp:
         frame = tk.Frame(self.root)
         frame.pack(pady=5)
 
-        tk.Button(frame, text="Agregar Proceso", command=self.agregar_proceso).pack(side="left", padx=5)
-        tk.Button(frame, text="Simular SJF", command=self.simular).pack(side="left", padx=5)
+        tk.Button(
+            frame,
+            text="Agregar Proceso",
+            command=self.agregar_proceso
+        ).pack(side="left", padx=5)
+
+        tk.Button(
+            frame,
+            text="Simular SJF",
+            command=self.simular
+        ).pack(side="left", padx=5)
+
+        tk.Button(
+            frame,
+            text="Nuevo Ejercicio",
+            command=self.limpiar_todo,
+            bg="#c0392b",
+            fg="white"
+        ).pack(side="left", padx=5)
 
     # =========================
     # RESULTADOS
@@ -95,29 +115,25 @@ class SJFApp:
         self.resultado = tk.Text(frame, height=8)
         self.resultado.pack(fill="x", padx=5, pady=5)
 
-        self.cpl_label = tk.Label(frame, text="CPL: | |", font=("Consolas", 11))
-        self.cpl_label.pack(anchor="w", padx=5)
+        self.frame_cpl = tk.LabelFrame(frame, text="CPL – Cola de Procesos Listos")
+        self.frame_cpl.pack(fill="x", padx=5, pady=5)
 
-        self.io_label = tk.Label(frame, text="O E/S: | |", font=("Consolas", 11))
-        self.io_label.pack(anchor="w", padx=5)
+        self.frame_io = tk.LabelFrame(frame, text="O E/S – Entrada / Salida")
+        self.frame_io.pack(fill="x", padx=5, pady=5)
 
         self.frame_gantt = tk.LabelFrame(frame, text="CPU – Diagrama de Gantt")
         self.frame_gantt.pack(fill="both", expand=True, padx=5, pady=5)
 
     # =========================
-    # FUNCIONES
+    # AGREGAR PROCESO
     # =========================
     def agregar_proceso(self):
         try:
-            # Validaciones básicas
-            if not self.id_entry.get():
-                raise ValueError("ID vacío")
-
             llegada = int(self.llegada_entry.get())
             rafaga = int(self.rafaga_entry.get())
 
             if llegada < 0 or rafaga <= 0:
-                raise ValueError("Valores negativos")
+                raise ValueError
 
             proceso = {
                 "id": self.id_entry.get(),
@@ -131,31 +147,22 @@ class SJFApp:
                 "fin": None
             }
 
-            # Datos de Entrada / Salida
             if self.io_var.get() == "Sí":
-                io_inicio = int(self.io_inicio_entry.get())
-                io_duracion = int(self.io_duracion_entry.get())
+                proceso["io_inicio"] = int(self.io_inicio_entry.get())
+                proceso["io_duracion"] = int(self.io_duracion_entry.get())
 
-                if io_inicio <= 0 or io_duracion <= 0 or io_inicio > rafaga:
-                    raise ValueError("Datos O E/S inválidos")
-
-                proceso["io_inicio"] = io_inicio
-                proceso["io_duracion"] = io_duracion
-
-            # Guardar proceso
             self.procesos.append(proceso)
 
-            # Insertar en tabla
             self.tabla.insert("", "end", values=(
                 proceso["id"],
                 proceso["llegada"],
                 proceso["rafaga"],
                 self.io_var.get(),
                 proceso["io_inicio"] if proceso["io_inicio"] is not None else "-",
-                proceso["io_duracion"] if proceso["io_duracion"] else "-"
+                proceso["io_duracion"] if proceso["io_duracion"] is not None else "-"
             ))
 
-            # Limpiar entradas
+            # Limpiar campos
             self.id_entry.delete(0, tk.END)
             self.llegada_entry.delete(0, tk.END)
             self.rafaga_entry.delete(0, tk.END)
@@ -163,16 +170,12 @@ class SJFApp:
             self.io_duracion_entry.delete(0, tk.END)
             self.io_var.set("No")
 
-        except Exception:
-            messagebox.showerror(
-                "Error",
-                "Verifique los datos:\n"
-                "- Llegada ≥ 0\n"
-                "- Ráfaga > 0\n"
-                "- Inicio O E/S ≤ ráfaga\n"
-                "- Duración O E/S > 0"
-            )
+        except:
+            messagebox.showerror("Error", "Datos inválidos")
 
+    # =========================
+    # SIMULACIÓN
+    # =========================
     def simular(self):
         if not self.procesos:
             messagebox.showwarning("Aviso", "Ingrese procesos primero")
@@ -181,10 +184,8 @@ class SJFApp:
         gantt, cpl_hist, io_hist, procesos = simular_sjf(self.procesos)
 
         self.resultado.delete(1.0, tk.END)
-        self.resultado.insert(tk.END, "RESULTADOS\n\n")
 
-        total_te = 0
-        total_teje = 0
+        total_te = total_teje = 0
 
         for p in procesos:
             te = p["fin"] - p["rafaga"] - p["llegada"]
@@ -197,7 +198,8 @@ class SJFApp:
             total_teje += teje
 
             self.resultado.insert(
-                tk.END, f"{p['id']} → TE={te} | TEje={teje}\n"
+                tk.END,
+                f"{p['id']} → TE={te} | TEje={teje}\n"
             )
 
         self.resultado.insert(
@@ -206,19 +208,38 @@ class SJFApp:
             f"\nTEjeP = {total_teje / len(procesos):.2f}"
         )
 
-        # 👇 NUEVO: mostrar CPL y O E/S
-        self.cpl_label.config(
-            text="CPL: | " + " | ".join(cpl_hist) + " |"
-        )
-
-        if io_hist:
-            self.io_label.config(
-                text="O E/S: | " + " | ".join(io_hist) + " |"
-            )
-        else:
-            self.io_label.config(text="O E/S: No hubo operaciones")
-
+        # Dibujos corregidos
+        dibujar_cpl(self.frame_cpl, cpl_hist)
+        dibujar_oes(self.frame_io, io_hist)
         dibujar_gantt(self.frame_gantt, gantt)
+
+    # =========================
+    # LIMPIAR TODO
+    # =========================
+    def limpiar_todo(self):
+        if not messagebox.askyesno(
+            "Nuevo ejercicio",
+            "¿Desea borrar todos los datos y comenzar un nuevo ejercicio?"
+        ):
+            return
+
+        self.procesos.clear()
+
+        for item in self.tabla.get_children():
+            self.tabla.delete(item)
+
+        self.resultado.delete(1.0, tk.END)
+
+        for frame in (self.frame_cpl, self.frame_io, self.frame_gantt):
+            for widget in frame.winfo_children():
+                widget.destroy()
+
+        self.id_entry.delete(0, tk.END)
+        self.llegada_entry.delete(0, tk.END)
+        self.rafaga_entry.delete(0, tk.END)
+        self.io_inicio_entry.delete(0, tk.END)
+        self.io_duracion_entry.delete(0, tk.END)
+        self.io_var.set("No")
 
 
 # =========================
