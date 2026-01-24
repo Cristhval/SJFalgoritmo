@@ -1,6 +1,6 @@
 # =====================================================
-# Simulador SJF Apropiativo (SRTF) - VALIDADO
-# FIFO en empates + prioridad llegada tabla + validación
+# Simulador SJF Apropiativo (SRTF)
+# Con O E/S, Gantt, CPL, métricas
 # =====================================================
 
 class Proceso:
@@ -18,61 +18,80 @@ class Proceso:
         self.ejecutado_cpu = 0
         self.io_realizado = False
         self.io_fin = None
-        self.orden_llegada_cpl = None  # FIFO
+
+        self.orden_llegada_cpl = None
+        self.tiempo_fin = None  # ⬅ NUEVO
 
     def __str__(self):
         return f"P{self.pid}"
 
 
 # =========================
-# INGRESO SEGURO DE DATOS
+# INGRESO DE DATOS
 # =========================
 
-def leer_entero(mensaje, minimo=0):
+def leer_entero(msg, minimo=0):
     while True:
         try:
-            v = int(input(mensaje))
+            v = int(input(msg))
             if v < minimo:
                 raise ValueError
             return v
         except ValueError:
-            print("❌ Valor inválido. Intente nuevamente.")
-
+            print("❌ Valor inválido.")
 
 while True:
-    n = leer_entero("Ingrese el número de procesos: ", 1)
+    n = leer_entero("Número de procesos: ", 1)
     procesos = []
     error = False
 
     for i in range(n):
         print(f"\nProceso P{i}")
         try:
-            llegada = leer_entero("Tiempo de llegada: ", 0)
-            rafaga = leer_entero("Ráfaga de CPU: ", 1)
+            llegada = leer_entero("Tiempo de llegada: ")
+            rafaga = leer_entero("Ráfaga CPU: ", 1)
 
             tiene_io = input("¿Tiene O E/S? (s/n): ").lower()
-            if tiene_io not in ('s', 'n'):
+            if tiene_io not in ("s", "n"):
                 raise ValueError
 
             instante_io = 0
             duracion_io = 0
-            if tiene_io == 's':
+            if tiene_io == "s":
                 instante_io = leer_entero(
-                    "¿Después de cuántos ms ejecutados va a O E/S?: ", 1)
+                    "Milisegundo en que va a O E/S: ", 1)
                 duracion_io = leer_entero(
                     "Duración de O E/S: ", 1)
 
             procesos.append(
                 Proceso(i, llegada, rafaga,
-                        tiene_io == 's', instante_io, duracion_io)
+                        tiene_io == "s",
+                        instante_io, duracion_io)
             )
         except:
-            print("❌ Error en los datos. Se reinicia el ingreso.")
+            print("❌ Error en los datos. Reingrese todo.")
             error = True
             break
 
     if not error:
         break
+
+
+# =========================
+# TABLA DE PROCESOS
+# =========================
+
+print("\nTABLA DE PROCESOS")
+print("-" * 65)
+print("Proceso | Llegada | Ráfaga | O E/S | Instante | Duración")
+print("-" * 65)
+
+for p in procesos:
+    print(f"P{p.pid:^7}|{p.llegada:^9}|{p.rafaga_total:^8}|"
+          f"{'Sí' if p.tiene_io else 'No':^6}|"
+          f"{p.instante_io if p.tiene_io else '-':^9}|"
+          f"{p.duracion_io if p.tiene_io else '-':^9}")
+print("-" * 65)
 
 
 # =========================
@@ -88,34 +107,33 @@ gantt_cpu = []
 cpl_final = []
 io_final = []
 
-contador_fifo = 0
+fifo = 0
 
 while True:
-    # 1️⃣ Llegadas desde TABLA (prioridad)
+    # Llegadas desde tabla
     for p in procesos:
         if p.llegada == tiempo:
-            p.orden_llegada_cpl = contador_fifo
-            contador_fifo += 1
+            p.orden_llegada_cpl = fifo
+            fifo += 1
             cpl.append(p)
             cpl_final.append(str(p))
 
-    # 2️⃣ Regreso de O E/S
+    # Regresos de O E/S
     for p in io[:]:
         if tiempo == p.io_fin:
-            p.orden_llegada_cpl = contador_fifo
-            contador_fifo += 1
+            p.orden_llegada_cpl = fifo
+            fifo += 1
             cpl.append(p)
             cpl_final.append(str(p))
             io.remove(p)
 
-    # Ordenar CPL → SJF + FIFO
+    # Ordenar CPL (SJF + FIFO)
     cpl.sort(key=lambda x: (x.rafaga_restante, x.orden_llegada_cpl))
 
     # Apropiación
-    if cpu and cpl and (
-        cpl[0].rafaga_restante < cpu.rafaga_restante):
-        cpu.orden_llegada_cpl = contador_fifo
-        contador_fifo += 1
+    if cpu and cpl and cpl[0].rafaga_restante < cpu.rafaga_restante:
+        cpu.orden_llegada_cpl = fifo
+        fifo += 1
         cpl.append(cpu)
         cpl_final.append(str(cpu))
         cpu = None
@@ -126,7 +144,7 @@ while True:
 
     gantt_cpu.append(str(cpu) if cpu else "Idle")
 
-    # Ejecutar CPU
+    # Ejecutar
     if cpu:
         cpu.rafaga_restante -= 1
         cpu.ejecutado_cpu += 1
@@ -140,12 +158,35 @@ while True:
             cpu = None
 
         elif cpu.rafaga_restante == 0:
+            cpu.tiempo_fin = tiempo + 1  # ⬅ IMPORTANTE
             cpu = None
 
     tiempo += 1
 
-    if all(p.rafaga_restante == 0 for p in procesos) and not io and cpu is None:
+    if all(p.rafaga_restante == 0 for p in procesos) and not io and not cpu:
         break
+
+
+# =========================
+# MÉTRICAS
+# =========================
+
+total_te = 0
+total_teje = 0
+
+for p in procesos:
+    te = (p.tiempo_fin
+          - p.rafaga_total
+          - p.llegada)
+
+    if p.tiene_io:
+        te -= p.duracion_io
+
+    total_te += te
+    total_teje += (p.tiempo_fin - p.llegada)
+
+tep = total_te / n
+teje_p = total_teje / n
 
 
 # =========================
@@ -153,15 +194,18 @@ while True:
 # =========================
 
 print("\nGANTT CPU")
-print("".join(f"|{p:^4}" for p in gantt_cpu) + "|")
-print("".join(f"{i:^5}" for i in range(len(gantt_cpu))))
+print("".join(f"|{x:^4}" for x in gantt_cpu) + "|")
 
 print("\nCPL FINAL")
-print("".join(f"|{p:^4}" for p in cpl_final) + "|")
+print("".join(f"|{x:^4}" for x in cpl_final) + "|")
 
 print("\nO E/S FINAL")
 if io_final:
     print("".join(f"|{p:^4}" for p, _ in io_final) + "|")
-    print("".join(f"|{fin:^4}" for _, fin in io_final) + "|")
+    print("".join(f"|{t:^4}" for _, t in io_final) + "|")
 else:
     print("|   SIN O E/S   |")
+
+print("\n📊 MÉTRICAS")
+print(f"TEP  (Tiempo de Espera Promedio): {tep:.2f} ms")
+print(f"TEjeP (Tiempo de Ejecución Promedio): {teje_p:.2f} ms")
