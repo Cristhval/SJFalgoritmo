@@ -11,6 +11,32 @@ class SJFApp:
         self.root.title("Simulación SJF Apropiativo")
         self.root.geometry("1000x700")
 
+        # ===== CONTENEDOR CON SCROLL =====
+        self.canvas = tk.Canvas(root)
+        self.scrollbar = ttk.Scrollbar(root, orient="vertical", command=self.canvas.yview)
+
+        self.scrollable_frame = tk.Frame(self.canvas)
+
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.canvas.configure(
+                scrollregion=self.canvas.bbox("all")
+            )
+        )
+
+        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+
+        self.canvas.pack(side="left", fill="both", expand=True)
+        self.scrollbar.pack(side="right", fill="y")
+
+        # Scroll con rueda del mouse
+        self.canvas.bind_all(
+            "<MouseWheel>",
+            lambda e: self.canvas.yview_scroll(int(-1 * (e.delta / 120)), "units")
+        )
+
+        # =================================
         self.procesos = []
 
         self.crear_formulario()
@@ -22,7 +48,7 @@ class SJFApp:
     # FORMULARIO
     # =========================
     def crear_formulario(self):
-        frame = tk.LabelFrame(self.root, text="Ingreso de Proceso")
+        frame = tk.LabelFrame(self.scrollable_frame, text="Ingreso de Proceso")
         frame.pack(fill="x", padx=10, pady=5)
 
         labels = ["Proceso", "Llegada", "Ráfaga", "O E/S", "Inicio O E/S", "Duración"]
@@ -39,6 +65,7 @@ class SJFApp:
         self.id_entry.grid(row=1, column=0)
         self.llegada_entry.grid(row=1, column=1)
         self.rafaga_entry.grid(row=1, column=2)
+
         ttk.Combobox(
             frame,
             values=["No", "Sí"],
@@ -46,14 +73,15 @@ class SJFApp:
             width=6,
             state="readonly"
         ).grid(row=1, column=3)
+
         self.io_inicio_entry.grid(row=1, column=4)
         self.io_duracion_entry.grid(row=1, column=5)
 
     # =========================
-    # TABLA DE PROCESOS
+    # TABLA
     # =========================
     def crear_tabla(self):
-        frame = tk.LabelFrame(self.root, text="Tabla de Procesos")
+        frame = tk.LabelFrame(self.scrollable_frame, text="Tabla de Procesos")
         frame.pack(fill="x", padx=10, pady=5)
 
         self.tabla = ttk.Treeview(
@@ -82,21 +110,11 @@ class SJFApp:
     # BOTONES
     # =========================
     def crear_botones(self):
-        frame = tk.Frame(self.root)
+        frame = tk.Frame(self.scrollable_frame)
         frame.pack(pady=5)
 
-        tk.Button(
-            frame,
-            text="Agregar Proceso",
-            command=self.agregar_proceso
-        ).pack(side="left", padx=5)
-
-        tk.Button(
-            frame,
-            text="Simular SJF",
-            command=self.simular
-        ).pack(side="left", padx=5)
-
+        tk.Button(frame, text="Agregar Proceso", command=self.agregar_proceso).pack(side="left", padx=5)
+        tk.Button(frame, text="Simular SJF", command=self.simular).pack(side="left", padx=5)
         tk.Button(
             frame,
             text="Nuevo Ejercicio",
@@ -109,7 +127,7 @@ class SJFApp:
     # RESULTADOS
     # =========================
     def crear_resultados(self):
-        frame = tk.LabelFrame(self.root, text="Resultados")
+        frame = tk.LabelFrame(self.scrollable_frame, text="Resultados")
         frame.pack(fill="both", expand=True, padx=10, pady=5)
 
         self.resultado = tk.Text(frame, height=8)
@@ -129,17 +147,11 @@ class SJFApp:
     # =========================
     def agregar_proceso(self):
         try:
-            llegada = int(self.llegada_entry.get())
-            rafaga = int(self.rafaga_entry.get())
-
-            if llegada < 0 or rafaga <= 0:
-                raise ValueError
-
             proceso = {
                 "id": self.id_entry.get(),
-                "llegada": llegada,
-                "rafaga": rafaga,
-                "restante": rafaga,
+                "llegada": int(self.llegada_entry.get()),
+                "rafaga": int(self.rafaga_entry.get()),
+                "restante": int(self.rafaga_entry.get()),
                 "io_inicio": None,
                 "io_duracion": None,
                 "io_retorno": None,
@@ -162,12 +174,12 @@ class SJFApp:
                 proceso["io_duracion"] if proceso["io_duracion"] is not None else "-"
             ))
 
-            # Limpiar campos
-            self.id_entry.delete(0, tk.END)
-            self.llegada_entry.delete(0, tk.END)
-            self.rafaga_entry.delete(0, tk.END)
-            self.io_inicio_entry.delete(0, tk.END)
-            self.io_duracion_entry.delete(0, tk.END)
+            for e in (
+                self.id_entry, self.llegada_entry, self.rafaga_entry,
+                self.io_inicio_entry, self.io_duracion_entry
+            ):
+                e.delete(0, tk.END)
+
             self.io_var.set("No")
 
         except:
@@ -183,9 +195,22 @@ class SJFApp:
 
         gantt, cpl_hist, io_hist, procesos = simular_sjf(self.procesos)
 
+        # =========================
+        # MOSTRAR RESULTADOS
+        # =========================
         self.resultado.delete(1.0, tk.END)
 
-        total_te = total_teje = 0
+        total_te = 0
+        total_teje = 0
+
+        self.resultado.insert(
+            tk.END,
+            "Proceso | Llegada | Ráfaga | Fin | TE | TEje\n"
+        )
+        self.resultado.insert(
+            tk.END,
+            "-" * 45 + "\n"
+        )
 
         for p in procesos:
             te = p["fin"] - p["rafaga"] - p["llegada"]
@@ -199,52 +224,40 @@ class SJFApp:
 
             self.resultado.insert(
                 tk.END,
-                f"{p['id']} → TE={te} | TEje={teje}\n"
+                f"{p['id']:7} | {p['llegada']:7} | {p['rafaga']:6} | "
+                f"{p['fin']:3} | {te:2} | {teje:4}\n"
             )
 
+        self.resultado.insert(tk.END, "\n")
         self.resultado.insert(
             tk.END,
-            f"\nTEP = {total_te / len(procesos):.2f}"
-            f"\nTEjeP = {total_teje / len(procesos):.2f}"
+            f"TEP   = {total_te / len(procesos):.2f} ms\n"
+        )
+        self.resultado.insert(
+            tk.END,
+            f"TEjeP = {total_teje / len(procesos):.2f} ms\n"
         )
 
-        # Dibujos corregidos
+        # =========================
+        # DIBUJOS
+        # =========================
         dibujar_cpl(self.frame_cpl, cpl_hist)
         dibujar_oes(self.frame_io, io_hist)
         dibujar_gantt(self.frame_gantt, gantt)
 
     # =========================
-    # LIMPIAR TODO
+    # LIMPIAR
     # =========================
     def limpiar_todo(self):
-        if not messagebox.askyesno(
-            "Nuevo ejercicio",
-            "¿Desea borrar todos los datos y comenzar un nuevo ejercicio?"
-        ):
-            return
-
         self.procesos.clear()
-
         for item in self.tabla.get_children():
             self.tabla.delete(item)
-
-        self.resultado.delete(1.0, tk.END)
 
         for frame in (self.frame_cpl, self.frame_io, self.frame_gantt):
             for widget in frame.winfo_children():
                 widget.destroy()
 
-        self.id_entry.delete(0, tk.END)
-        self.llegada_entry.delete(0, tk.END)
-        self.rafaga_entry.delete(0, tk.END)
-        self.io_inicio_entry.delete(0, tk.END)
-        self.io_duracion_entry.delete(0, tk.END)
-        self.io_var.set("No")
 
-
-# =========================
-# EJECUCIÓN
-# =========================
 if __name__ == "__main__":
     root = tk.Tk()
     app = SJFApp(root)

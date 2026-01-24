@@ -3,7 +3,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 
 # =========================
-# DIAGRAMA DE GANTT CPU
+# CPU – DIAGRAMA DE GANTT
 # =========================
 def dibujar_gantt(frame, gantt):
     for widget in frame.winfo_children():
@@ -16,29 +16,30 @@ def dibujar_gantt(frame, gantt):
     ax = fig.add_subplot(111)
 
     inicio = 0
-    proceso_actual = gantt[0]
+    actual = gantt[0]
     marcas = [0]
 
     for t in range(1, len(gantt) + 1):
-        if t == len(gantt) or gantt[t] != proceso_actual:
-            duracion = t - inicio
+        if t == len(gantt) or gantt[t] != actual:
+            dur = t - inicio
 
-            if proceso_actual != "—":
-                ax.barh(0, duracion, left=inicio, height=0.5)
+            if actual != "—":
+                ax.barh(0, dur, left=inicio, height=0.45)
                 ax.text(
-                    inicio + duracion / 2,
+                    inicio + dur / 2,
                     0,
-                    proceso_actual,
+                    actual,
                     ha="center",
                     va="center",
                     color="white",
-                    fontweight="bold"
+                    fontweight="bold",
+                    fontsize=9
                 )
 
             marcas.append(t)
             inicio = t
             if t < len(gantt):
-                proceso_actual = gantt[t]
+                actual = gantt[t]
 
     ax.set_yticks([])
     ax.set_xticks(marcas)
@@ -52,7 +53,7 @@ def dibujar_gantt(frame, gantt):
 
 
 # =========================
-# CPL (LISTA DE LISTOS)
+# CPL – COLA DE LISTOS (HISTÓRICA)
 # =========================
 def dibujar_cpl(frame, lista):
     for widget in frame.winfo_children():
@@ -61,17 +62,11 @@ def dibujar_cpl(frame, lista):
     if not lista:
         return
 
-    # Eliminar duplicados manteniendo orden
-    vistos = []
-    for p in lista:
-        if p not in vistos:
-            vistos.append(p)
-
-    fig = Figure(figsize=(6, 1.5))
+    fig = Figure(figsize=(8, 1.5))
     ax = fig.add_subplot(111)
 
-    for i, pid in enumerate(vistos):
-        ax.barh(0, 1, left=i, height=0.5)
+    for i, pid in enumerate(lista):
+        ax.barh(0, 1, left=i, height=0.45)
         ax.text(
             i + 0.5,
             0,
@@ -79,21 +74,22 @@ def dibujar_cpl(frame, lista):
             ha="center",
             va="center",
             color="white",
-            fontweight="bold"
+            fontweight="bold",
+            fontsize=9
         )
 
-    ax.set_xlim(0, len(vistos))
+    ax.set_xlim(0, len(lista))
     ax.set_yticks([])
     ax.set_xticks([])
-    ax.set_title("CPL (Cola de Listos)")
+    ax.set_title("CPL – Cola de Procesos Listos")
 
     canvas = FigureCanvasTkAgg(fig, master=frame)
     canvas.draw()
-    canvas.get_tk_widget().pack(fill="both", expand=True)
+    canvas.get_tk_widget().pack(fill="x", expand=True)
 
 
 # =========================
-# O E/S (ENTRADA / SALIDA)
+# O E/S – ENTRADA / SALIDA
 # =========================
 def dibujar_oes(frame, lista):
     for widget in frame.winfo_children():
@@ -103,10 +99,8 @@ def dibujar_oes(frame, lista):
         return
 
     procesos = []
-
-    # Extraer solo procesos con O E/S
     for item in lista:
-        if "(" in item:
+        if "(" in item and ")" in item:
             pid, tiempo = item.replace(")", "").split("(")
             procesos.append((pid, int(tiempo)))
 
@@ -117,10 +111,7 @@ def dibujar_oes(frame, lista):
     ax = fig.add_subplot(111)
 
     for i, (pid, tiempo) in enumerate(procesos):
-        # Bloque del proceso
         ax.barh(0, 1, left=i, height=0.5)
-
-        # ID del proceso
         ax.text(
             i + 0.5,
             0,
@@ -130,8 +121,6 @@ def dibujar_oes(frame, lista):
             color="white",
             fontweight="bold"
         )
-
-        # Milisegundo de retorno
         ax.text(
             i + 0.5,
             -0.6,
@@ -145,7 +134,7 @@ def dibujar_oes(frame, lista):
     ax.set_ylim(-1, 1)
     ax.set_yticks([])
     ax.set_xticks([])
-    ax.set_title("O E/S (retorno a CPL)")
+    ax.set_title("O E/S – Retorno a CPL (ms)")
 
     canvas = FigureCanvasTkAgg(fig, master=frame)
     canvas.draw()
