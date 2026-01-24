@@ -205,7 +205,7 @@ class SJFApp:
 
         self.resultado.insert(
             tk.END,
-            "Proceso | Llegada | Ráfaga | Fin | TE | TEje\n"
+            "Proceso | Llegada | Ráfaga | Fin | TEP | TEjeP\n"
         )
         self.resultado.insert(
             tk.END,
