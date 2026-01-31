@@ -1,4 +1,3 @@
-from collections import deque
 
 # =========================
 # INGRESO DE PROCESOS
@@ -65,17 +64,21 @@ def simular_sjf(procesos):
     procesos_io = []
 
     while True:
+        # 🔧 FIX: Registrar solo cuando procesos ENTRAN a CPL
+
         # Llegadas desde tabla
         llegados = [p for p in procesos_tabla if p["llegada"] == tiempo]
         for p in llegados:
             cpl.append(p)
             procesos_tabla.remove(p)
+            historial_cpl.append(p["id"])  # ✅ Registrar llegada nueva
 
         # Retornos de O E/S
         retornos = [p for p in procesos_io if p["io_retorno"] == tiempo]
         for p in retornos:
             cpl.append(p)
             procesos_io.remove(p)
+            historial_cpl.append(p["id"])  # ✅ Registrar retorno de E/S
 
         # Orden CPL (SJF + FIFO + prioridad tabla)
         cpl.sort(key=lambda x: (x["restante"], x["llegada"]))
@@ -84,6 +87,7 @@ def simular_sjf(procesos):
         if cpu and cpu["restante"] > 0:
             if cpl and cpl[0]["restante"] < cpu["restante"]:
                 cpl.append(cpu)
+                cpl.sort(key=lambda x: (x["restante"], x["llegada"]))
                 cpu = cpl.pop(0)
         elif cpl:
             cpu = cpl.pop(0)
@@ -96,7 +100,7 @@ def simular_sjf(procesos):
 
             # Ir a O E/S
             if cpu["io_inicio"] is not None and cpu["ejecutado"] == cpu["io_inicio"]:
-                cpu["io_retorno"] = tiempo + cpu["io_duracion"]
+                cpu["io_retorno"] = tiempo + cpu["io_duracion"] + 1
                 procesos_io.append(cpu)
                 cpu = None
 
@@ -107,8 +111,9 @@ def simular_sjf(procesos):
         else:
             gantt.append("—")
 
-        historial_cpl.extend([p["id"] for p in cpl])
-        historial_io.extend([f"{p['id']}({p['io_retorno']})" for p in procesos_io])
+        # Registrar estado de O E/S
+        if procesos_io:
+            historial_io.extend([f"{p['id']}({p['io_retorno']})" for p in procesos_io])
 
         tiempo += 1
 
@@ -157,4 +162,3 @@ def imprimir_tablas(procesos, gantt, cpl_hist, io_hist):
 
     print("\n📌 TEP =", total_te / len(procesos))
     print("📌 TEjeP =", total_teje / len(procesos))
-
