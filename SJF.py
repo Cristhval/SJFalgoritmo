@@ -14,35 +14,59 @@ def ingresar_procesos():
 
     procesos = []
 
-    i = 1
-    while i <= n:
+    for i in range(1, n + 1):
         print(f"\nProceso P{i}")
         try:
             llegada = int(input("Tiempo de llegada: "))
             rafaga = int(input("Ráfaga de CPU: "))
 
+            io = []
             tiene_io = input("¿Tiene O E/S? (s/n): ").lower()
-            io_inicio = None
-            io_duracion = None
 
             if tiene_io == "s":
-                io_inicio = int(input("Milisegundo de ejecución en que va a O E/S: "))
-                io_duracion = int(input("Duración de O E/S: "))
+                inicios = input(
+                    "Inicios de O E/S (ej: 2 3 4): "
+                ).split()
+
+                duraciones = input(
+                    "Duraciones de O E/S (ej: 1 2 1): "
+                ).split()
+
+                if len(inicios) != len(duraciones):
+                    raise ValueError("Cantidad distinta de inicios y duraciones")
+
+                if len(inicios) > 3:
+                    raise ValueError("Máximo 3 E/S por proceso")
+
+                for ini, dur in zip(inicios, duraciones):
+                    ini = int(ini)
+                    dur = int(dur)
+
+                    if ini < 0 or dur <= 0 or ini >= rafaga:
+                        raise ValueError("Valores inválidos de E/S")
+
+                    io.append({
+                        "inicio": ini,
+                        "duracion": dur
+                    })
+
+                io.sort(key=lambda x: x["inicio"])
 
             procesos.append({
                 "id": f"P{i}",
                 "llegada": llegada,
                 "rafaga": rafaga,
                 "restante": rafaga,
-                "io_inicio": io_inicio,
-                "io_duracion": io_duracion,
+                "io": io,
+                "io_actual": 0,
                 "io_retorno": None,
                 "ejecutado": 0,
                 "fin": None
             })
-            i += 1
-        except:
-            print("❌ Error en datos. Reingrese el proceso.")
+
+        except Exception as e:
+            print("❌ Error:", e)
+            return ingresar_procesos()
 
     return procesos
 
@@ -54,11 +78,11 @@ def simular_sjf(procesos):
     tiempo = 0
     cpu = None
     cpl = []
-    io = []
     gantt = []
+    io_hist = []
+
 
     historial_cpl = []
-    historial_io = []
 
     procesos_tabla = procesos.copy()
     procesos_io = []
@@ -93,34 +117,45 @@ def simular_sjf(procesos):
             cpu = cpl.pop(0)
 
         # Ejecutar CPU
+        # Ir a O E/S
         if cpu:
             gantt.append(cpu["id"])
             cpu["restante"] -= 1
             cpu["ejecutado"] += 1
 
-            # Ir a O E/S
-            if cpu["io_inicio"] is not None and cpu["ejecutado"] == cpu["io_inicio"]:
-                cpu["io_retorno"] = tiempo + cpu["io_duracion"] + 1
-                procesos_io.append(cpu)
-                cpu = None
+            # 1️⃣ Verificar E/S
+            if cpu["io_actual"] < len(cpu["io"]):
+                io_act = cpu["io"][cpu["io_actual"]]
 
-            # Termina proceso
-            elif cpu and cpu["restante"] == 0:
+                if cpu["ejecutado"] == io_act["inicio"]:
+                    # Registrar evento de E/S (CLAVE)
+                    io_hist.append({
+                        "id": cpu["id"],
+                        "inicio": tiempo,
+                        "duracion": io_act["duracion"]
+                    })
+
+                    cpu["io_retorno"] = tiempo + io_act["duracion"] + 1
+                    cpu["io_actual"] += 1
+                    procesos_io.append(cpu)
+                    cpu = None
+
+
+            # 2️⃣ Verificar finalización (SIEMPRE)
+            if cpu and cpu["restante"] == 0:
                 cpu["fin"] = tiempo + 1
                 cpu = None
+
         else:
             gantt.append("—")
 
-        # Registrar estado de O E/S
-        if procesos_io:
-            historial_io.extend([f"{p['id']}({p['io_retorno']})" for p in procesos_io])
 
         tiempo += 1
 
         if not (procesos_tabla or cpl or cpu or procesos_io):
             break
 
-    return gantt, historial_cpl, historial_io, procesos
+    return gantt, historial_cpl, io_hist, procesos
 
 
 # =========================
@@ -128,11 +163,13 @@ def simular_sjf(procesos):
 # =========================
 def imprimir_tablas(procesos, gantt, cpl_hist, io_hist):
     print("\n📋 TABLA DE PROCESOS")
-    print("Proceso | Llegada | Ráfaga | O E/S | Duración")
+    print("Proceso | Llegada | Ráfaga | Inicios E/S | Duraciones")
     for p in procesos:
+        inicios = " ".join(str(io["inicio"]) for io in p["io"]) or "-"
+        dur = " ".join(str(io["duracion"]) for io in p["io"]) or "-"
+
         print(f"{p['id']:7} | {p['llegada']:7} | {p['rafaga']:6} | "
-              f"{'Sí' if p['io_inicio'] else 'No':5} | "
-              f"{p['io_duracion'] if p['io_duracion'] else '-'}")
+            f"{inicios:11} | {dur}")
 
     print("\n📊 DIAGRAMA DE GANTT (CPU)")
     print("|" + "|".join(gantt) + "|")
@@ -141,7 +178,17 @@ def imprimir_tablas(procesos, gantt, cpl_hist, io_hist):
     print("|" + "|".join(cpl_hist) + "|")
 
     print("\n🔄 O E/S FINAL")
-    print("|" + "|".join(io_hist) + "|")
+    if io_hist:
+        eventos = [
+            f"{e['id']}@{e['inicio']}({e['duracion']})"
+            for e in io_hist
+        ]
+        print("| " + " | ".join(eventos) + " |")
+    else:
+        print("| — |")
+
+
+
 
     print("\n📈 TABLA FINAL (TE y TEje)")
     total_te = 0
@@ -150,8 +197,8 @@ def imprimir_tablas(procesos, gantt, cpl_hist, io_hist):
     print("Proceso | TE | TEje")
     for p in procesos:
         te = p["fin"] - p["rafaga"] - p["llegada"]
-        if p["io_duracion"]:
-            te -= p["io_duracion"]
+        if p["io"]:
+            te -= sum(io["duracion"] for io in p["io"])
 
         teje = p["fin"] - p["llegada"]
 
