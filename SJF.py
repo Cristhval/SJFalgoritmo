@@ -101,6 +101,7 @@ def simular_sjf(procesos):
             # Ir a O E/S
             if cpu["io_inicio"] is not None and cpu["ejecutado"] == cpu["io_inicio"]:
                 cpu["io_retorno"] = tiempo + cpu["io_duracion"] + 1
+                cpu["rafaga_restante_io"] = cpu["restante"]
                 procesos_io.append(cpu)
                 cpu = None
 
@@ -113,7 +114,10 @@ def simular_sjf(procesos):
 
         # Registrar estado de O E/S
         if procesos_io:
-            historial_io.extend([f"{p['id']}({p['io_retorno']})" for p in procesos_io])
+            historial_io.extend([
+                f"{p['id']}({p['io_retorno']})|{p['rafaga_restante_io']}"
+                for p in procesos_io
+            ])
 
         tiempo += 1
 
@@ -141,7 +145,13 @@ def imprimir_tablas(procesos, gantt, cpl_hist, io_hist):
     print("|" + "|".join(cpl_hist) + "|")
 
     print("\n🔄 O E/S FINAL")
-    print("|" + "|".join(io_hist) + "|")
+    print("|", end="")
+    for item in io_hist:
+        base, raf = item.split("|")
+        pid, ret = base.replace(")", "").split("(")
+        print(f"{pid}: ráfaga {raf} [{ret}] | ", end="")
+    print()
+
 
     print("\n📈 TABLA FINAL (TE y TEje)")
     total_te = 0

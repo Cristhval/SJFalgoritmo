@@ -245,15 +245,26 @@ def dibujar_oes(frame, lista):
     procesos = []
     vistos = set()
 
+    procesos = []
+    vistos = set()
+
     for item in lista:
-        if "(" in item and ")" in item:
-            try:
-                pid, tiempo = item.replace(")", "").split("(")
-                if pid not in vistos:
-                    procesos.append((pid, int(tiempo)))
-                    vistos.add(pid)
-            except:
-                continue
+        try:
+            # Formato: P2(8)|3
+            base, rafaga = item.split("|")
+            pid, tiempo = base.replace(")", "").split("(")
+
+            pid = pid.strip()
+            tiempo = int(tiempo)
+            rafaga = int(rafaga)
+
+            if pid not in vistos:
+                procesos.append((pid, tiempo, rafaga))
+                vistos.add(pid)
+
+        except:
+            continue
+
 
     if not procesos:
         return
@@ -270,7 +281,7 @@ def dibujar_oes(frame, lista):
     num_procesos = len(procesos)
     ancho_barra = min(1.0, fig_width / (num_procesos * 1.5))
 
-    for i, (pid, tiempo) in enumerate(procesos):
+    for i, (pid, tiempo, rafaga) in enumerate(procesos):
         ax.barh(0, ancho_barra, left=i * ancho_barra, height=0.5, color=color_io,
                 edgecolor='white', linewidth=2)
 
@@ -290,7 +301,7 @@ def dibujar_oes(frame, lista):
         ax.text(
             i * ancho_barra + ancho_barra / 2,
             -0.55,
-            f"{tiempo} ms",
+            f"ráfaga {rafaga} [{tiempo} ms]",
             ha="center",
             va="center",
             fontsize=10,

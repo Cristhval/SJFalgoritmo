@@ -139,11 +139,13 @@ class SJFApp:
         inputs_frame.pack(fill="x", expand=True)
 
         # Configurar grid para que sea responsive
-        for i in range(6):
+        for i in range(5):
             inputs_frame.grid_columnconfigure(i, weight=1, uniform="inputs")
 
-        labels = ["Proceso", "Llegada (ms)", "Ráfaga (ms)", "Tiene E/S",
-                  "Inicio E/S (ms)", "Duración E/S (ms)"]
+
+        labels = ["Proceso", "Llegada (ms)", "Ráfaga (ms)",
+          "Inicio E/S (ms)", "Duración E/S (ms)"]
+
 
         # Etiquetas
         for i, texto in enumerate(labels):
@@ -167,7 +169,6 @@ class SJFApp:
         self.id_entry = tk.Entry(inputs_frame, **entry_config)
         self.llegada_entry = tk.Entry(inputs_frame, **entry_config)
         self.rafaga_entry = tk.Entry(inputs_frame, **entry_config)
-        self.io_var = tk.StringVar(value="No")
         self.io_inicio_entry = tk.Entry(inputs_frame, **entry_config)
         self.io_duracion_entry = tk.Entry(inputs_frame, **entry_config)
 
@@ -176,18 +177,8 @@ class SJFApp:
         self.llegada_entry.grid(row=1, column=1, padx=5, sticky="ew")
         self.rafaga_entry.grid(row=1, column=2, padx=5, sticky="ew")
 
-        combo = ttk.Combobox(
-            inputs_frame,
-            values=["No", "Sí"],
-            textvariable=self.io_var,
-            state="readonly",
-            font=('Arial', 10),
-            justify='center'
-        )
-        combo.grid(row=1, column=3, padx=5, sticky="ew")
-
-        self.io_inicio_entry.grid(row=1, column=4, padx=5, sticky="ew")
-        self.io_duracion_entry.grid(row=1, column=5, padx=5, sticky="ew")
+        self.io_inicio_entry.grid(row=1, column=3, padx=5, sticky="ew")
+        self.io_duracion_entry.grid(row=1, column=4, padx=5, sticky="ew")
 
         # Botón agregar dentro del formulario
         btn_agregar = tk.Button(
@@ -236,7 +227,7 @@ class SJFApp:
 
         self.tabla = ttk.Treeview(
             tabla_frame,
-            columns=("id", "llegada", "rafaga", "io", "io_inicio", "dur"),
+            columns=("id", "llegada", "rafaga", "io_inicio", "dur"),
             show="headings",
             height=8
         )
@@ -256,7 +247,6 @@ class SJFApp:
             "id": "Proceso",
             "llegada": "Llegada (ms)",
             "rafaga": "Ráfaga CPU (ms)",
-            "io": "Tiene E/S",
             "io_inicio": "Inicio E/S (ms)",
             "dur": "Duración E/S (ms)"
         }
@@ -288,7 +278,7 @@ class SJFApp:
         frame.pack(pady=15)
 
         # Botón Simular
-        btn_simular = tk.Button(
+        self.btn_simular = tk.Button(
             frame,
             text="▶️ Simular SJF",
             command=self.simular,
@@ -301,11 +291,11 @@ class SJFApp:
             pady=12,
             width=20
         )
-        btn_simular.pack(side="left", padx=10)
+        self.btn_simular.pack(side="left", padx=10)
 
         # Efectos hover
-        btn_simular.bind('<Enter>', lambda e: e.widget.config(bg='#2980b9'))
-        btn_simular.bind('<Leave>', lambda e: e.widget.config(bg='#3498db'))
+        self.btn_simular.bind('<Enter>', lambda e: e.widget.config(bg='#2980b9'))
+        self.btn_simular.bind('<Leave>', lambda e: e.widget.config(bg='#3498db'))
 
         # Botón Limpiar
         btn_limpiar = tk.Button(
@@ -455,29 +445,38 @@ class SJFApp:
                 "ejecutado": 0,
                 "fin": None
             }
+            
+            io_inicio_txt = self.io_inicio_entry.get().strip()
+            io_duracion_txt = self.io_duracion_entry.get().strip()
 
-            if self.io_var.get() == "Sí":
-                if not self.io_inicio_entry.get().strip() or \
-                        not self.io_duracion_entry.get().strip():
-                    messagebox.showwarning("⚠️ Datos incompletos",
-                                           "Complete los datos de E/S o seleccione 'No'")
+            if io_inicio_txt or io_duracion_txt:
+                if not io_inicio_txt or not io_duracion_txt:
+                    messagebox.showwarning(
+                        "⚠️ Datos incompletos",
+                        "Si el proceso tiene E/S, complete Inicio y Duración"
+                    )
                     return
 
-                io_inicio = int(self.io_inicio_entry.get())
-                io_duracion = int(self.io_duracion_entry.get())
+                io_inicio = int(io_inicio_txt)
+                io_duracion = int(io_duracion_txt)
 
                 if io_inicio < 0 or io_duracion <= 0:
-                    messagebox.showerror("❌ Error",
-                                         "Los tiempos de E/S deben ser positivos")
+                    messagebox.showerror(
+                        "❌ Error",
+                        "Los tiempos de E/S deben ser positivos"
+                    )
                     return
 
                 if io_inicio >= rafaga:
-                    messagebox.showerror("❌ Error",
-                                         "El inicio de E/S debe ser menor que la ráfaga")
+                    messagebox.showerror(
+                        "❌ Error",
+                        "El inicio de E/S debe ser menor que la ráfaga"
+                    )
                     return
 
                 proceso["io_inicio"] = io_inicio
                 proceso["io_duracion"] = io_duracion
+
 
             self.procesos.append(proceso)
 
@@ -485,7 +484,6 @@ class SJFApp:
                 proceso["id"],
                 proceso["llegada"],
                 proceso["rafaga"],
-                self.io_var.get(),
                 proceso["io_inicio"] if proceso["io_inicio"] is not None else "-",
                 proceso["io_duracion"] if proceso["io_duracion"] is not None else "-"
             ))
@@ -502,7 +500,6 @@ class SJFApp:
             ):
                 e.delete(0, tk.END)
 
-            self.io_var.set("No")
             self.id_entry.focus()
 
             # Mensaje de éxito
@@ -519,6 +516,8 @@ class SJFApp:
     # SIMULACIÓN
     # =========================
     def simular(self):
+        self.btn_simular.config(state="disabled")
+
         if not self.procesos:
             messagebox.showwarning("⚠️ Aviso",
                                    "Debe ingresar al menos un proceso antes de simular")
@@ -628,11 +627,11 @@ class SJFApp:
         ):
             e.delete(0, tk.END)
 
-        self.io_var.set("No")
         self.id_entry.focus()
 
         messagebox.showinfo("✅ Limpieza completada",
                             "Se han eliminado todos los datos")
+        self.btn_simular.config(state="normal")
 
 
 if __name__ == "__main__":
