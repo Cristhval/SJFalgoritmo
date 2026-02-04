@@ -439,43 +439,64 @@ class SJFApp:
                 "llegada": llegada,
                 "rafaga": rafaga,
                 "restante": rafaga,
-                "io_inicio": None,
-                "io_duracion": None,
+                "io": [],              # 👈 lista de E/S
+                "io_actual": 0,        # 👈 índice de E/S actual
                 "io_retorno": None,
                 "ejecutado": 0,
                 "fin": None
             }
+
             
             io_inicio_txt = self.io_inicio_entry.get().strip()
             io_duracion_txt = self.io_duracion_entry.get().strip()
 
             if io_inicio_txt or io_duracion_txt:
-                if not io_inicio_txt or not io_duracion_txt:
-                    messagebox.showwarning(
-                        "⚠️ Datos incompletos",
-                        "Si el proceso tiene E/S, complete Inicio y Duración"
-                    )
-                    return
+                inicios = io_inicio_txt.split()
+                duraciones = io_duracion_txt.split()
 
-                io_inicio = int(io_inicio_txt)
-                io_duracion = int(io_duracion_txt)
-
-                if io_inicio < 0 or io_duracion <= 0:
+                if len(inicios) != len(duraciones):
                     messagebox.showerror(
                         "❌ Error",
-                        "Los tiempos de E/S deben ser positivos"
+                        "La cantidad de inicios y duraciones de E/S no coincide"
                     )
                     return
 
-                if io_inicio >= rafaga:
+                if len(inicios) > 3:
                     messagebox.showerror(
                         "❌ Error",
-                        "El inicio de E/S debe ser menor que la ráfaga"
+                        "Un proceso puede tener como máximo 3 operaciones de E/S"
                     )
                     return
 
-                proceso["io_inicio"] = io_inicio
-                proceso["io_duracion"] = io_duracion
+                io_list = []
+
+                for i, d in zip(inicios, duraciones):
+                    inicio = int(i)
+                    dur = int(d)
+
+                    if inicio < 0 or dur <= 0:
+                        messagebox.showerror(
+                            "❌ Error",
+                            "Los tiempos de E/S deben ser positivos"
+                        )
+                        return
+
+                    if inicio >= rafaga:
+                        messagebox.showerror(
+                            "❌ Error",
+                            "El inicio de E/S debe ser menor que la ráfaga"
+                        )
+                        return
+
+                    io_list.append({
+                        "inicio": inicio,
+                        "duracion": dur
+                    })
+
+                # Ordenar por inicio (seguridad)
+                io_list.sort(key=lambda x: x["inicio"])
+
+                proceso["io"] = io_list
 
 
             self.procesos.append(proceso)
@@ -484,9 +505,10 @@ class SJFApp:
                 proceso["id"],
                 proceso["llegada"],
                 proceso["rafaga"],
-                proceso["io_inicio"] if proceso["io_inicio"] is not None else "-",
-                proceso["io_duracion"] if proceso["io_duracion"] is not None else "-"
+                " ".join(str(io["inicio"]) for io in proceso["io"]) or "-",
+                " ".join(str(io["duracion"]) for io in proceso["io"]) or "-"
             ))
+
 
             # Actualizar contador
             self.label_contador.config(
@@ -551,8 +573,11 @@ class SJFApp:
 
             for p in procesos:
                 te = p["fin"] - p["rafaga"] - p["llegada"]
-                if p["io_duracion"]:
-                    te -= p["io_duracion"]
+
+                # Restar TODAS las duraciones de E/S
+                total_io = sum(io["duracion"] for io in p["io"])
+                te -= total_io
+
 
                 teje = p["fin"] - p["llegada"]
 
