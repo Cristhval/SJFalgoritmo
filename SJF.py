@@ -1,4 +1,3 @@
-
 # =========================
 # INGRESO DE PROCESOS
 # =========================
@@ -24,7 +23,7 @@ def ingresar_procesos():
             tiene_io = input("¿Tiene O E/S? (s/n): ").lower()
 
             if tiene_io == "s":
-                inicios = input(
+                inicios = input( # Permite maximo 3 O E/S
                     "Inicios de O E/S (ej: 2 3 4): "
                 ).split()
 
@@ -32,7 +31,7 @@ def ingresar_procesos():
                     "Duraciones de O E/S (ej: 1 2 1): "
                 ).split()
 
-                if len(inicios) != len(duraciones):
+                if len(inicios) != len(duraciones): # Verifica cuantas E/S tiene un proceso
                     raise ValueError("Cantidad distinta de inicios y duraciones")
 
                 if len(inicios) > 3:
@@ -45,7 +44,7 @@ def ingresar_procesos():
                     if ini < 0 or dur <= 0 or ini >= rafaga:
                         raise ValueError("Valores inválidos de E/S")
 
-                    io.append({
+                    io.append({ # Guarda todas las E/S
                         "inicio": ini,
                         "duracion": dur
                     })
@@ -88,26 +87,26 @@ def simular_sjf(procesos):
     procesos_io = []
 
     while True:
-        # 🔧 FIX: Registrar solo cuando procesos ENTRAN a CPL
+        #  FIX: Registrar solo cuando procesos ENTRAN a CPL
 
         # Llegadas desde tabla
         llegados = [p for p in procesos_tabla if p["llegada"] == tiempo]
         for p in llegados:
             cpl.append(p)
             procesos_tabla.remove(p)
-            historial_cpl.append(p["id"])  # ✅ Registrar llegada nueva
+            historial_cpl.append(p["id"])  #  Registrar llegada nueva
 
         # Retornos de O E/S
         retornos = [p for p in procesos_io if p["io_retorno"] == tiempo]
         for p in retornos:
             cpl.append(p)
             procesos_io.remove(p)
-            historial_cpl.append(p["id"])  # ✅ Registrar retorno de E/S
+            historial_cpl.append(p["id"])  #  Registrar retorno de E/S
 
         # Orden CPL (SJF + FIFO + prioridad tabla)
         cpl.sort(key=lambda x: (x["restante"], x["llegada"]))
 
-        # Selección CPU
+        # Selección CPU(APROPIACION)
         if cpu and cpu["restante"] > 0:
             if cpl and cpl[0]["restante"] < cpu["restante"]:
                 cpl.append(cpu)
@@ -120,10 +119,10 @@ def simular_sjf(procesos):
         # Ir a O E/S
         if cpu:
             gantt.append(cpu["id"])
-            cpu["restante"] -= 1
+            cpu["restante"] -= 1  # simula 1 unidad de tiempo
             cpu["ejecutado"] += 1
 
-            # 1️⃣ Verificar E/S
+            # 1️ Verificar E/S
             if cpu["io_actual"] < len(cpu["io"]):
                 io_act = cpu["io"][cpu["io_actual"]]
 
@@ -141,13 +140,13 @@ def simular_sjf(procesos):
                     cpu = None
 
 
-            # 2️⃣ Verificar finalización (SIEMPRE)
+            # 2️ Verificar finalización (SIEMPRE)
             if cpu and cpu["restante"] == 0:
                 cpu["fin"] = tiempo + 1
                 cpu = None
 
         else:
-            gantt.append("—")
+            gantt.append("—") # CPU ociosa
 
 
         tiempo += 1

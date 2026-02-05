@@ -47,7 +47,7 @@ class SJFApp:
         self.canvas_window = self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
 
-        # 🔧 FIX: Hacer que el canvas se expanda horizontalmente
+        #  FIX: Hacer que el canvas se expanda horizontalmente
         self.canvas.bind('<Configure>', self.on_canvas_configure)
 
         self.canvas.grid(row=0, column=0, sticky="nsew")
@@ -131,7 +131,7 @@ class SJFApp:
         )
         frame.pack(fill="x")
 
-        # 🔧 FIX: Usar grid con columnas que se expanden
+        #  FIX: Usar grid con columnas que se expanden
         frame.grid_columnconfigure(0, weight=1)
 
         # Frame principal para organizar inputs
@@ -227,7 +227,7 @@ class SJFApp:
         tabla_frame = tk.Frame(frame, bg=self.color_frame)
         tabla_frame.pack(fill="both", expand=True)
 
-        # 🔧 FIX: Hacer que la tabla se expanda
+        #  FIX: Hacer que la tabla se expanda
         tabla_frame.grid_rowconfigure(0, weight=1)
         tabla_frame.grid_columnconfigure(0, weight=1)
 
@@ -460,8 +460,8 @@ class SJFApp:
                 "llegada": llegada,
                 "rafaga": rafaga,
                 "restante": rafaga,
-                "io": [],  # 👈 lista de E/S
-                "io_actual": 0,  # 👈 índice de E/S actual
+                "io": [],  #  lista de E/S
+                "io_actual": 0,  #  índice de E/S actual
                 "io_retorno": None,
                 "ejecutado": 0,
                 "fin": None

@@ -31,12 +31,12 @@ def dibujar_gantt(frame, gantt):
     if not gantt:
         return
 
-    # 🔧 FIX: Ancho dinámico basado en el frame
+    #  FIX: Ancho dinámico basado en el frame
     fig_width = obtener_ancho_frame(frame)
     fig = Figure(figsize=(fig_width, 2.5), dpi=100)
     ax = fig.add_subplot(111)
 
-    # Colores más atractivos para los procesos
+    # Colores
     colores = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6',
                '#1abc9c', '#e67e22', '#34495e', '#16a085', '#c0392b']
     proceso_color = {}
@@ -118,7 +118,7 @@ def dibujar_cpl(frame, lista):
             pass
         return
 
-    # 🔧 FIX: NO eliminar duplicados - queremos ver todas las veces que un proceso entra a CPL
+    #  FIX: NO eliminar duplicados - queremos ver todas las veces que un proceso entra a CPL
     # Esto incluye cuando retornan de E/S
     cpl = lista.copy()
 
@@ -253,7 +253,7 @@ def dibujar_gantt(frame, gantt):
     if not gantt:
         return
 
-    # 🔧 FIX: Ancho dinámico basado en el frame
+    #  FIX: Ancho dinámico basado en el frame
     fig_width = obtener_ancho_frame(frame)
     fig = Figure(figsize=(fig_width, 2.5), dpi=100)
     ax = fig.add_subplot(111)
@@ -314,7 +314,7 @@ def dibujar_gantt(frame, gantt):
 
     canvas = FigureCanvasTkAgg(fig, master=frame)
     canvas.draw()
-    # 🔧 FIX: Pack con fill y expand para que se adapte
+    #  FIX: Pack con fill y expand para que se adapte
     canvas.get_tk_widget().pack(fill="both", expand=True, padx=5, pady=5)
 
 
@@ -340,14 +340,14 @@ def dibujar_cpl(frame, lista):
             pass
         return
 
-    # 🔧 FIX: NO eliminar duplicados - queremos ver todas las veces que un proceso entra a CPL
+    #  FIX: NO eliminar duplicados - queremos ver todas las veces que un proceso entra a CPL
     # Esto incluye cuando retornan de E/S
     cpl = lista.copy()
 
     if not cpl:
         return
 
-    # 🔧 FIX: Ancho dinámico
+    #  FIX: Ancho dinámico
     fig_width = obtener_ancho_frame(frame)
     # Altura dinámica según cantidad de procesos
     fig_height = min(3.0, max(1.8, len(cpl) * 0.15))
@@ -366,7 +366,7 @@ def dibujar_cpl(frame, lista):
             procesos_unicos.append(p)
             colores_proceso[p] = colores_base[len(procesos_unicos) - 1 % len(colores_base)]
 
-    # 🔧 FIX: Calcular ancho de barras dinámicamente
+    #  FIX: Calcular ancho de barras dinámicamente
     num_items = len(cpl)
     ancho_barra = min(1.0, fig_width / (num_items * 1.2))
 
@@ -462,7 +462,7 @@ def dibujar_oes(frame, lista):
 
     procesos = []
 
-    # 🔧 FIX CLAVE: cada E/S es un evento independiente
+    #  FIX CLAVE: cada E/S es un evento independiente
     for e in lista:
         try:
             pid = e["id"]
